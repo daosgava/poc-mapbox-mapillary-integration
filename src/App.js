@@ -5,7 +5,7 @@ import "mapbox-gl/dist/mapbox-gl.css";
 import "mapillary-js/dist/mapillary.css";
 
 const MELBOURNE_COORDINATES = [144.962646, -37.810272];
-const INITIAL_ZOOM = 15;
+const INITIAL_ZOOM = 12;
 const MAP_STYLE = "mapbox://styles/mapbox/light-v11";
 const MAPILLATY_TILE_URL = `https://tiles.mapillary.com/maps/vtp/mly1_public/2/{z}/{x}/{y}?access_token=${process.env.REACT_APP_MAPILLARY_ACCESS_TOKEN}`;
 
@@ -42,6 +42,7 @@ const App = () => {
   const [mapInstance, setMapInstance] = useState();
   const viewerRef = useRef(null);
   const [viewerInstance, setViewerInstance] = useState();
+  const [showInstruction, setShowInstruction] = useState(true);
 
   // Initialize Map
   useEffect(() => {
@@ -87,6 +88,10 @@ const App = () => {
     });
 
     setViewerInstance(viewer);
+
+    viewer.on("loaded", () => {
+      setShowInstruction(false);
+    });
 
     return () => {
       viewer.remove();
@@ -138,7 +143,24 @@ const App = () => {
           backgroundColor: "white",
           width: "50%",
         }}
-      ></div>
+      >
+        {showInstruction && (
+          <div
+            style={{
+              position: "absolute",
+              top: "50%",
+              left: "50%",
+              transform: "translate(-50%, -50%)",
+              backgroundColor: "white",
+              padding: "1rem",
+              borderRadius: "0.5rem",
+              textAlign: "center",
+            }}
+          >
+            <h2>Click on the map to view the street view</h2>
+          </div>
+        )}
+      </div>
       <div
         id="map"
         ref={mapContainerRef}
