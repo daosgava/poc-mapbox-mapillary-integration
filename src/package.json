@@ -1,0 +1,8 @@
+{
+  "dependencies": {
+    "mapbox-gl": "3.9.1",
+    "react": "latest",
+    "react-dom": "latest",
+    "mapillary-js": "4.1.2"
+  }
+}
