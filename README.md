@@ -1,4 +1,4 @@
-# Mapbox GL JS and Mapillary JS POC
+# Mapbox and Mapillary Integration POC
 
 This POC shows how to use Mapbox GL JS and Mapillary JS to display a map with Mapillary images.
 
