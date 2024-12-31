@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useCallback } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import mapboxgl from "mapbox-gl";
 import { Viewer } from "mapillary-js";
 import "mapbox-gl/dist/mapbox-gl.css";
@@ -9,88 +9,67 @@ const INITIAL_ZOOM = 15;
 const MAP_STYLE = "mapbox://styles/mapbox/light-v11";
 const MAPILLATY_TILE_URL = `https://tiles.mapillary.com/maps/vtp/mly1_public/2/{z}/{x}/{y}?access_token=${process.env.REACT_APP_MAPILLARY_ACCESS_TOKEN}`;
 
-const App = () => {
-  const mapRef = useRef(null);
-  const viewerRef = useRef(null);
+const initializeMapillarySource = (map) => {
+  map.addSource("mapillary", {
+    type: "vector",
+    tiles: [MAPILLATY_TILE_URL],
+    minzoom: 6,
+    maxzoom: 14,
+  });
 
-  const initializeMapillarySource = useCallback((map) => {
-    map.addSource("mapillary", {
-      type: "vector",
-      tiles: [MAPILLATY_TILE_URL],
-      minzoom: 6,
-      maxzoom: 14,
-    });
-
-    map.addLayer(
-      {
-        id: "mapillary",
-        type: "line",
-        source: "mapillary",
-        "source-layer": "sequence",
-        layout: {
-          "line-cap": "round",
-          "line-join": "round",
-        },
-        paint: {
-          "line-opacity": 0.6,
-          "line-color": "rgb(53, 175, 140)",
-          "line-width": 2,
-        },
+  map.addLayer(
+    {
+      id: "mapillary",
+      type: "line",
+      source: "mapillary",
+      "source-layer": "sequence",
+      layout: {
+        "line-cap": "round",
+        "line-join": "round",
       },
-      "road-label-simple",
-    );
-  }, []);
+      paint: {
+        "line-opacity": 0.6,
+        "line-color": "rgb(53, 175, 140)",
+        "line-width": 2,
+      },
+    },
+    "road-label-simple",
+  );
+};
 
-  const handleMapClick = useCallback((e) => {
-    if (!mapRef.current || !viewerRef.current) return;
-
-    const features = mapRef.current.queryRenderedFeatures(e.point, {
-      layers: ["mapillary"],
-    });
-
-    const closest = features[0];
-    if (!closest?.properties?.image_id) {
-      console.warn("No image_id found");
-      return;
-    }
-
-    viewerRef.current
-      .moveTo(closest.properties.image_id)
-      .catch((error) => console.error("Mapillary viewer error:", error));
-  }, []);
+const App = () => {
+  const mapContainerRef = useRef(null);
+  const [mapInstance, setMapInstance] = useState();
+  const viewerRef = useRef(null);
+  const [viewerInstance, setViewerInstance] = useState();
 
   // Initialize Map
   useEffect(() => {
-    if (!mapRef.current) return;
-
-    const mapboxToken = process.env.REACT_APP_MAPBOX_ACCESS_TOKEN;
-    if (!mapboxToken) {
-      console.error("Mapbox token is missing");
-      return;
-    }
-
-    mapboxgl.accessToken = mapboxToken;
+    if (!mapContainerRef.current) return;
 
     const map = new mapboxgl.Map({
-      container: mapRef.current,
+      container: mapContainerRef.current,
       style: MAP_STYLE,
       zoom: INITIAL_ZOOM,
       center: MELBOURNE_COORDINATES,
+      accessToken: process.env.REACT_APP_MAPBOX_ACCESS_TOKEN,
     });
 
     map.on("load", () => {
       initializeMapillarySource(map);
     });
 
+    map.on("click", handleMapClick);
+
     map.addControl(new mapboxgl.NavigationControl());
 
-    mapRef.current = map;
+    setMapInstance(map);
 
     return () => {
       map.remove();
-      mapRef.current = null;
+      setMapInstance(null);
     };
-  }, [initializeMapillarySource]);
+  }, [mapContainerRef]);
 
   // Initialize Mapillary Viewer
   useEffect(() => {
@@ -107,20 +86,43 @@ const App = () => {
       container: viewerRef.current,
     });
 
-    viewerRef.current = viewer;
-
-    if (mapRef.current) {
-      mapRef.current.on("click", handleMapClick);
-    }
+    setViewerInstance(viewer);
 
     return () => {
-      if (mapRef.current) {
-        mapRef.current.off("click", handleMapClick);
-      }
       viewer.remove();
-      viewerRef.current = null;
+      setViewerInstance(null);
     };
-  }, [handleMapClick]);
+  }, [viewerRef]);
+
+  const handleMapClick = useCallback(
+    (e) => {
+      if (!mapInstance || !viewerInstance) return;
+
+      const features = mapInstance.queryRenderedFeatures(e.point, {
+        layers: ["mapillary"],
+      });
+
+      const closest = features[0];
+      if (!closest?.properties?.image_id) {
+        console.warn("No image_id found");
+        return;
+      }
+
+      viewerInstance
+        .moveTo(closest.properties.image_id)
+        .catch((error) => console.error("Mapillary viewer error:", error));
+    },
+    [mapInstance, viewerInstance],
+  );
+
+  useEffect(() => {
+    if (!mapInstance || !viewerInstance) return;
+    mapInstance.on("click", handleMapClick);
+
+    return () => {
+      mapInstance.off("click", handleMapClick);
+    };
+  }, [mapInstance, viewerInstance, handleMapClick]);
 
   return (
     <div
@@ -133,12 +135,13 @@ const App = () => {
       <div
         ref={viewerRef}
         style={{
+          backgroundColor: "white",
           width: "50%",
         }}
       ></div>
       <div
         id="map"
-        ref={mapRef}
+        ref={mapContainerRef}
         style={{ height: "100vh", width: "50%" }}
       ></div>
     </div>
